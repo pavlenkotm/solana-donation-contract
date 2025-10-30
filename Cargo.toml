@@ -1,0 +1,8 @@
+
+### 📄 Корневой Cargo.toml
+```toml
+[workspace]
+members = ["programs/donation"]
+
+[profile.release]
+overflow-checks = true
