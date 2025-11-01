@@ -9,6 +9,12 @@ const MIN_DONATION: u64 = 1_000_000;
 /// Maximum donation amount in lamports (100 SOL)
 const MAX_DONATION: u64 = 100_000_000_000;
 
+/// Donation tier thresholds
+const TIER_BRONZE: u64 = 1_000_000;      // 0.001 SOL
+const TIER_SILVER: u64 = 100_000_000;    // 0.1 SOL
+const TIER_GOLD: u64 = 1_000_000_000;    // 1 SOL
+const TIER_PLATINUM: u64 = 10_000_000_000; // 10 SOL
+
 #[program]
 pub mod donation {
     use super::*;
@@ -25,6 +31,7 @@ pub mod donation {
         vault_state.admin = ctx.accounts.admin.key();
         vault_state.total_donated = 0;
         vault_state.donation_count = 0;
+        vault_state.is_paused = false;
         vault_state.bump = ctx.bumps.vault_state;
 
         msg!("Donation vault initialized by admin: {}", ctx.accounts.admin.key());
@@ -44,7 +51,13 @@ pub mod donation {
     /// # Errors
     /// * `DonationError::DonationTooSmall` - If donation is below minimum
     /// * `DonationError::DonationTooLarge` - If donation exceeds maximum
+    /// * `DonationError::ContractPaused` - If donations are paused
     pub fn donate(ctx: Context<Donate>, amount: u64) -> Result<()> {
+        let vault_state = &ctx.accounts.vault_state;
+
+        // Check if contract is paused
+        require!(!vault_state.is_paused, DonationError::ContractPaused);
+
         // Validate donation amount
         require!(
             amount >= MIN_DONATION,
@@ -76,17 +89,33 @@ pub mod donation {
             .checked_add(1)
             .ok_or(DonationError::Overflow)?;
 
+        // Update or initialize donor info
+        let donor_info = &mut ctx.accounts.donor_info;
+        donor_info.donor = ctx.accounts.donor.key();
+        donor_info.total_donated = donor_info
+            .total_donated
+            .checked_add(amount)
+            .ok_or(DonationError::Overflow)?;
+        donor_info.donation_count = donor_info
+            .donation_count
+            .checked_add(1)
+            .ok_or(DonationError::Overflow)?;
+        donor_info.last_donation_timestamp = Clock::get()?.unix_timestamp;
+        donor_info.tier = calculate_tier(donor_info.total_donated);
+
         // Emit donation event
         emit!(DonationEvent {
             donor: ctx.accounts.donor.key(),
             amount,
             total_donated: vault_state.total_donated,
+            donor_tier: donor_info.tier,
         });
 
         msg!(
-            "Donation received: {} lamports from {}",
+            "Donation received: {} lamports from {} (Tier: {:?})",
             amount,
-            ctx.accounts.donor.key()
+            ctx.accounts.donor.key(),
+            donor_info.tier
         );
 
         Ok(())
@@ -175,6 +204,125 @@ pub mod donation {
 
         Ok(())
     }
+
+    /// Withdraw a specific amount from the vault (admin only)
+    ///
+    /// # Arguments
+    /// * `ctx` - The context containing all accounts
+    /// * `amount` - The amount to withdraw in lamports
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error
+    pub fn withdraw_partial(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
+        // Verify admin authorization
+        require_keys_eq!(
+            ctx.accounts.admin.key(),
+            ctx.accounts.vault_state.admin,
+            DonationError::Unauthorized
+        );
+
+        let vault = ctx.accounts.vault.to_account_info();
+        let balance = vault.lamports();
+
+        // Check if there are sufficient funds
+        require!(balance > 0, DonationError::InsufficientFunds);
+        require!(amount > 0, DonationError::InvalidAmount);
+
+        // Calculate rent exempt amount to keep in vault
+        let rent = Rent::get()?;
+        let rent_exempt_minimum = rent.minimum_balance(vault.data_len());
+
+        // Ensure we maintain rent exemption after withdrawal
+        require!(
+            balance >= amount + rent_exempt_minimum,
+            DonationError::InsufficientFunds
+        );
+
+        // Transfer funds from vault to admin
+        **vault.try_borrow_mut_lamports()? -= amount;
+        **ctx.accounts.admin.to_account_info().try_borrow_mut_lamports()? += amount;
+
+        // Emit withdraw event
+        emit!(WithdrawEvent {
+            admin: ctx.accounts.admin.key(),
+            amount,
+        });
+
+        msg!(
+            "Partial withdrawal successful: {} lamports to admin {}",
+            amount,
+            ctx.accounts.admin.key()
+        );
+
+        Ok(())
+    }
+
+    /// Pause the donation contract (admin only)
+    ///
+    /// # Arguments
+    /// * `ctx` - The context containing all accounts
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error
+    pub fn pause(ctx: Context<UpdateAdmin>) -> Result<()> {
+        // Verify admin authorization
+        require_keys_eq!(
+            ctx.accounts.admin.key(),
+            ctx.accounts.vault_state.admin,
+            DonationError::Unauthorized
+        );
+
+        ctx.accounts.vault_state.is_paused = true;
+
+        emit!(PauseEvent {
+            admin: ctx.accounts.admin.key(),
+            paused: true,
+        });
+
+        msg!("Contract paused by admin: {}", ctx.accounts.admin.key());
+
+        Ok(())
+    }
+
+    /// Unpause the donation contract (admin only)
+    ///
+    /// # Arguments
+    /// * `ctx` - The context containing all accounts
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error
+    pub fn unpause(ctx: Context<UpdateAdmin>) -> Result<()> {
+        // Verify admin authorization
+        require_keys_eq!(
+            ctx.accounts.admin.key(),
+            ctx.accounts.vault_state.admin,
+            DonationError::Unauthorized
+        );
+
+        ctx.accounts.vault_state.is_paused = false;
+
+        emit!(PauseEvent {
+            admin: ctx.accounts.admin.key(),
+            paused: false,
+        });
+
+        msg!("Contract unpaused by admin: {}", ctx.accounts.admin.key());
+
+        Ok(())
+    }
+}
+
+/// Helper function to calculate donor tier based on total donations
+fn calculate_tier(total_donated: u64) -> DonorTier {
+    if total_donated >= TIER_PLATINUM {
+        DonorTier::Platinum
+    } else if total_donated >= TIER_GOLD {
+        DonorTier::Gold
+    } else if total_donated >= TIER_SILVER {
+        DonorTier::Silver
+    } else {
+        DonorTier::Bronze
+    }
 }
 
 // ========================================
@@ -230,6 +378,16 @@ pub struct Donate<'info> {
     )]
     pub vault: SystemAccount<'info>,
 
+    /// The donor info account (tracks individual donor statistics)
+    #[account(
+        init_if_needed,
+        payer = donor,
+        space = 8 + DonorInfo::INIT_SPACE,
+        seeds = [b"donor_info", donor.key().as_ref()],
+        bump
+    )]
+    pub donor_info: Account<'info, DonorInfo>,
+
     pub system_program: Program<'info, System>,
 }
 
@@ -282,8 +440,33 @@ pub struct VaultState {
     pub total_donated: u64,
     /// Number of donations received
     pub donation_count: u64,
+    /// Whether the contract is paused
+    pub is_paused: bool,
     /// PDA bump seed
     pub bump: u8,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct DonorInfo {
+    /// The donor's public key
+    pub donor: Pubkey,
+    /// Total amount donated by this donor
+    pub total_donated: u64,
+    /// Number of donations made by this donor
+    pub donation_count: u64,
+    /// Timestamp of last donation
+    pub last_donation_timestamp: i64,
+    /// Donor tier based on total donations
+    pub tier: DonorTier,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq, InitSpace)]
+pub enum DonorTier {
+    Bronze,
+    Silver,
+    Gold,
+    Platinum,
 }
 
 // ========================================
@@ -296,8 +479,10 @@ pub struct DonationEvent {
     pub donor: Pubkey,
     /// The amount donated
     pub amount: u64,
-    /// Total amount donated so far
+    /// Total amount donated so far (across all donors)
     pub total_donated: u64,
+    /// The donor's tier after this donation
+    pub donor_tier: DonorTier,
 }
 
 #[event]
@@ -306,6 +491,14 @@ pub struct WithdrawEvent {
     pub admin: Pubkey,
     /// The amount withdrawn
     pub amount: u64,
+}
+
+#[event]
+pub struct PauseEvent {
+    /// The admin's public key
+    pub admin: Pubkey,
+    /// Whether the contract is paused
+    pub paused: bool,
 }
 
 // ========================================
@@ -328,4 +521,10 @@ pub enum DonationError {
 
     #[msg("Arithmetic overflow occurred.")]
     Overflow,
+
+    #[msg("The contract is currently paused. Donations are disabled.")]
+    ContractPaused,
+
+    #[msg("Invalid amount specified. Amount must be greater than 0.")]
+    InvalidAmount,
 }
