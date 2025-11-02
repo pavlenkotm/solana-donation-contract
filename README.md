@@ -5,21 +5,25 @@ A **production-ready Solana smart contract** built with Rust and the Anchor fram
 ## ✨ Features
 
 ### Core Features
-- **Secure Donations**: Accept SOL donations with configurable min/max limits (0.001 - 100 SOL)
+- **Secure Donations**: Accept SOL donations with configurable min/max limits (default: 0.001 - 100 SOL)
 - **PDA-Based Vault**: Uses Program Derived Addresses for enhanced security
 - **Donor Tracking**: Individual donor statistics and contribution history
 - **Tier System**: 4-tier classification (Bronze, Silver, Gold, Platinum)
 - **Pause/Unpause**: Emergency stop mechanism for contract security
 - **Flexible Withdrawals**: Both full and partial withdrawal support
 - **Admin Management**: Transfer ownership and administrative controls
+- **Configurable Limits**: Admin can set custom min/max donation amounts
+- **Emergency Withdraw**: Critical security feature for emergency situations
 
 ### Advanced Features
-- **State Tracking**: Monitor total donations, counts, and individual donor stats
-- **Event Emission**: Rich events for donations, withdrawals, and pause state changes
+- **State Tracking**: Monitor total donations, withdrawals, unique donors, and individual stats
+- **Event Emission**: Rich events for donations, withdrawals, pause state changes, and limit updates
 - **Timestamp Tracking**: Records last donation time for each donor
 - **Comprehensive Error Handling**: Custom error types for better debugging
 - **Overflow Protection**: Safe math operations throughout
 - **Rent Exemption**: Maintains minimum balance for rent exemption
+- **Statistics API**: Get comprehensive vault statistics with a single call
+- **Unique Donors Tracking**: Automatically tracks and counts unique donors
 
 ### Developer Tools
 - **TypeScript Client SDK**: Full-featured SDK with event listeners
@@ -176,17 +180,80 @@ pub fn update_admin(ctx: Context<UpdateAdmin>, new_admin: Pubkey) -> Result<()>
 - `admin` - The current admin (signer)
 - `vault_state` - The vault state PDA (mutable)
 
+### 8. Update Donation Limits (NEW)
+
+Update the minimum and maximum donation amounts (admin only).
+
+```rust
+pub fn update_donation_limits(ctx: Context<UpdateAdmin>, min_amount: u64, max_amount: u64) -> Result<()>
+```
+
+**Parameters:**
+- `min_amount` - New minimum donation amount in lamports (must be > 0)
+- `max_amount` - New maximum donation amount in lamports (must be > min_amount)
+
+**Accounts:**
+- `admin` - The admin updating limits (signer)
+- `vault_state` - The vault state PDA (mutable)
+
+**Events:**
+- Emits `DonationLimitsUpdatedEvent` with old and new values
+
+### 9. Emergency Withdraw (NEW)
+
+Emergency withdrawal function that works even when contract is paused (admin only).
+
+```rust
+pub fn emergency_withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()>
+```
+
+**Parameters:**
+- `amount` - Amount to withdraw in lamports (0 for all available funds)
+
+**Accounts:**
+- `admin` - The admin withdrawing funds (signer, mutable)
+- `vault_state` - The vault state PDA (mutable)
+- `vault` - The vault PDA (mutable)
+
+**Events:**
+- Emits `EmergencyWithdrawEvent` with amount and reason
+
+### 10. Get Vault Statistics (NEW)
+
+Retrieve comprehensive vault statistics.
+
+```rust
+pub fn get_vault_stats(ctx: Context<GetVaultStats>) -> Result<()>
+```
+
+**Accounts:**
+- `vault_state` - The vault state PDA
+- `vault` - The vault PDA
+
+**Returns (via Event):**
+- `VaultStatistics` structure containing:
+  - admin, total_donated, total_withdrawn, current_balance
+  - donation_count, unique_donors, is_paused
+  - min_donation_amount, max_donation_amount
+
+**Events:**
+- Emits `VaultStatsEvent` with complete statistics
+
 ## 🏗️ Program Architecture
 
 ### State Structures
 
 ```rust
 pub struct VaultState {
-    pub admin: Pubkey,           // Admin public key
-    pub total_donated: u64,      // Total lamports donated (all donors)
-    pub donation_count: u64,     // Number of donations (all donors)
-    pub is_paused: bool,         // Whether contract is paused (NEW)
-    pub bump: u8,                // PDA bump seed
+    pub admin: Pubkey,              // Admin public key
+    pub total_donated: u64,         // Total lamports donated (all donors)
+    pub donation_count: u64,        // Number of donations (all donors)
+    pub is_paused: bool,            // Whether contract is paused
+    pub min_donation_amount: u64,   // Minimum donation amount (NEW)
+    pub max_donation_amount: u64,   // Maximum donation amount (NEW)
+    pub total_withdrawn: u64,       // Total amount withdrawn (NEW)
+    pub unique_donors: u64,         // Number of unique donors (NEW)
+    pub bump: u8,                   // PDA bump seed
 }
 
 pub struct DonorInfo {           // NEW
@@ -212,7 +279,7 @@ pub struct DonationEvent {
     pub donor: Pubkey,
     pub amount: u64,
     pub total_donated: u64,
-    pub donor_tier: DonorTier,   // NEW
+    pub donor_tier: DonorTier,
 }
 
 pub struct WithdrawEvent {
@@ -220,21 +287,73 @@ pub struct WithdrawEvent {
     pub amount: u64,
 }
 
-pub struct PauseEvent {          // NEW
+pub struct PauseEvent {
     pub admin: Pubkey,
     pub paused: bool,
+}
+
+pub struct DonationLimitsUpdatedEvent {  // NEW
+    pub admin: Pubkey,
+    pub old_min_amount: u64,
+    pub old_max_amount: u64,
+    pub new_min_amount: u64,
+    pub new_max_amount: u64,
+}
+
+pub struct EmergencyWithdrawEvent {      // NEW
+    pub admin: Pubkey,
+    pub amount: u64,
+    pub reason: String,
+}
+
+pub struct VaultStatsEvent {             // NEW
+    pub stats: VaultStatistics,
+}
+
+pub struct VaultStatistics {             // NEW
+    pub admin: Pubkey,
+    pub total_donated: u64,
+    pub total_withdrawn: u64,
+    pub current_balance: u64,
+    pub donation_count: u64,
+    pub unique_donors: u64,
+    pub is_paused: bool,
+    pub min_donation_amount: u64,
+    pub max_donation_amount: u64,
 }
 ```
 
 ### Custom Errors
 
-- `DonationTooSmall` - Donation below 0.001 SOL
-- `DonationTooLarge` - Donation exceeds 100 SOL
+- `DonationTooSmall` - Donation below minimum (configurable)
+- `DonationTooLarge` - Donation exceeds maximum (configurable)
 - `Unauthorized` - Non-admin attempted admin action
 - `InsufficientFunds` - Vault has insufficient balance
 - `Overflow` - Arithmetic overflow detected
-- `ContractPaused` - Donations blocked when paused (NEW)
-- `InvalidAmount` - Invalid withdrawal amount (NEW)
+- `ContractPaused` - Donations blocked when paused
+- `InvalidAmount` - Invalid amount specified (must be > 0, or min >= max)
+
+### Helper Functions (NEW)
+
+The contract includes utility functions for better developer experience:
+
+```rust
+// Conversion utilities
+pub fn lamports_to_sol(lamports: u64) -> f64
+pub fn sol_to_lamports(sol: f64) -> u64
+
+// Tier formatting utilities
+pub fn tier_to_string(tier: DonorTier) -> &'static str
+pub fn tier_to_emoji(tier: DonorTier) -> &'static str  // Returns 🥉🥈🥇💎
+```
+
+**Usage Examples:**
+```rust
+let sol_amount = lamports_to_sol(1_000_000_000);  // Returns 1.0
+let lamports = sol_to_lamports(0.5);              // Returns 500_000_000
+let tier_name = tier_to_string(DonorTier::Gold); // Returns "Gold"
+let emoji = tier_to_emoji(DonorTier::Platinum);  // Returns "💎"
+```
 
 ## 🏆 Donor Tier System
 
