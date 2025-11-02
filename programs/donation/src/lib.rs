@@ -9,11 +9,20 @@ const MIN_DONATION: u64 = 1_000_000;
 /// Maximum donation amount in lamports (100 SOL)
 const MAX_DONATION: u64 = 100_000_000_000;
 
+/// Default minimum donation amount in lamports (0.001 SOL)
+const DEFAULT_MIN_DONATION: u64 = 1_000_000;
+
+/// Default maximum donation amount in lamports (100 SOL)
+const DEFAULT_MAX_DONATION: u64 = 100_000_000_000;
+
 /// Donation tier thresholds
 const TIER_BRONZE: u64 = 1_000_000;      // 0.001 SOL
 const TIER_SILVER: u64 = 100_000_000;    // 0.1 SOL
 const TIER_GOLD: u64 = 1_000_000_000;    // 1 SOL
 const TIER_PLATINUM: u64 = 10_000_000_000; // 10 SOL
+
+/// Maximum number of top donors to track
+const MAX_TOP_DONORS: usize = 100;
 
 #[program]
 pub mod donation {
@@ -32,9 +41,15 @@ pub mod donation {
         vault_state.total_donated = 0;
         vault_state.donation_count = 0;
         vault_state.is_paused = false;
+        vault_state.min_donation_amount = DEFAULT_MIN_DONATION;
+        vault_state.max_donation_amount = DEFAULT_MAX_DONATION;
+        vault_state.total_withdrawn = 0;
+        vault_state.unique_donors = 0;
         vault_state.bump = ctx.bumps.vault_state;
 
         msg!("Donation vault initialized by admin: {}", ctx.accounts.admin.key());
+        msg!("Min donation: {} lamports, Max donation: {} lamports",
+            DEFAULT_MIN_DONATION, DEFAULT_MAX_DONATION);
 
         Ok(())
     }
@@ -58,13 +73,13 @@ pub mod donation {
         // Check if contract is paused
         require!(!vault_state.is_paused, DonationError::ContractPaused);
 
-        // Validate donation amount
+        // Validate donation amount using configurable limits
         require!(
-            amount >= MIN_DONATION,
+            amount >= vault_state.min_donation_amount,
             DonationError::DonationTooSmall
         );
         require!(
-            amount <= MAX_DONATION,
+            amount <= vault_state.max_donation_amount,
             DonationError::DonationTooLarge
         );
 
@@ -78,6 +93,9 @@ pub mod donation {
         );
         transfer(cpi_context, amount)?;
 
+        // Check if this is a new donor
+        let is_new_donor = ctx.accounts.donor_info.donation_count == 0;
+
         // Update vault state
         let vault_state = &mut ctx.accounts.vault_state;
         vault_state.total_donated = vault_state
@@ -88,6 +106,14 @@ pub mod donation {
             .donation_count
             .checked_add(1)
             .ok_or(DonationError::Overflow)?;
+
+        // Increment unique donors counter if this is a new donor
+        if is_new_donor {
+            vault_state.unique_donors = vault_state
+                .unique_donors
+                .checked_add(1)
+                .ok_or(DonationError::Overflow)?;
+        }
 
         // Update or initialize donor info
         let donor_info = &mut ctx.accounts.donor_info;
@@ -112,10 +138,11 @@ pub mod donation {
         });
 
         msg!(
-            "Donation received: {} lamports from {} (Tier: {:?})",
+            "Donation received: {} lamports from {} (Tier: {:?}, New donor: {})",
             amount,
             ctx.accounts.donor.key(),
-            donor_info.tier
+            donor_info.tier,
+            is_new_donor
         );
 
         Ok(())
@@ -161,6 +188,13 @@ pub mod donation {
         // Transfer funds from vault to admin
         **vault.try_borrow_mut_lamports()? -= withdraw_amount;
         **ctx.accounts.admin.to_account_info().try_borrow_mut_lamports()? += withdraw_amount;
+
+        // Update total withdrawn
+        let vault_state = &mut ctx.accounts.vault_state;
+        vault_state.total_withdrawn = vault_state
+            .total_withdrawn
+            .checked_add(withdraw_amount)
+            .ok_or(DonationError::Overflow)?;
 
         // Emit withdraw event
         emit!(WithdrawEvent {
@@ -242,6 +276,13 @@ pub mod donation {
         **vault.try_borrow_mut_lamports()? -= amount;
         **ctx.accounts.admin.to_account_info().try_borrow_mut_lamports()? += amount;
 
+        // Update total withdrawn
+        let vault_state = &mut ctx.accounts.vault_state;
+        vault_state.total_withdrawn = vault_state
+            .total_withdrawn
+            .checked_add(amount)
+            .ok_or(DonationError::Overflow)?;
+
         // Emit withdraw event
         emit!(WithdrawEvent {
             admin: ctx.accounts.admin.key(),
@@ -310,9 +351,180 @@ pub mod donation {
 
         Ok(())
     }
+
+    /// Update donation limits (admin only)
+    ///
+    /// # Arguments
+    /// * `ctx` - The context containing all accounts
+    /// * `min_amount` - New minimum donation amount in lamports
+    /// * `max_amount` - New maximum donation amount in lamports
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error
+    ///
+    /// # Errors
+    /// * `DonationError::Unauthorized` - If caller is not the admin
+    /// * `DonationError::InvalidAmount` - If min >= max
+    pub fn update_donation_limits(
+        ctx: Context<UpdateAdmin>,
+        min_amount: u64,
+        max_amount: u64,
+    ) -> Result<()> {
+        // Verify admin authorization
+        require_keys_eq!(
+            ctx.accounts.admin.key(),
+            ctx.accounts.vault_state.admin,
+            DonationError::Unauthorized
+        );
+
+        // Validate limits
+        require!(min_amount > 0, DonationError::InvalidAmount);
+        require!(max_amount > min_amount, DonationError::InvalidAmount);
+
+        let old_min = ctx.accounts.vault_state.min_donation_amount;
+        let old_max = ctx.accounts.vault_state.max_donation_amount;
+
+        ctx.accounts.vault_state.min_donation_amount = min_amount;
+        ctx.accounts.vault_state.max_donation_amount = max_amount;
+
+        emit!(DonationLimitsUpdatedEvent {
+            admin: ctx.accounts.admin.key(),
+            old_min_amount: old_min,
+            old_max_amount: old_max,
+            new_min_amount: min_amount,
+            new_max_amount: max_amount,
+        });
+
+        msg!(
+            "Donation limits updated: min {} -> {}, max {} -> {}",
+            old_min,
+            min_amount,
+            old_max,
+            max_amount
+        );
+
+        Ok(())
+    }
+
+    /// Emergency withdraw with override (admin only)
+    /// This function allows admin to withdraw even if contract is paused
+    ///
+    /// # Arguments
+    /// * `ctx` - The context containing all accounts
+    /// * `amount` - Amount to withdraw (0 for all funds)
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error
+    pub fn emergency_withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
+        // Verify admin authorization
+        require_keys_eq!(
+            ctx.accounts.admin.key(),
+            ctx.accounts.vault_state.admin,
+            DonationError::Unauthorized
+        );
+
+        let vault = ctx.accounts.vault.to_account_info();
+        let balance = vault.lamports();
+
+        require!(balance > 0, DonationError::InsufficientFunds);
+
+        // Calculate rent exempt amount
+        let rent = Rent::get()?;
+        let rent_exempt_minimum = rent.minimum_balance(vault.data_len());
+
+        let withdraw_amount = if amount == 0 {
+            // Withdraw all except rent
+            require!(
+                balance > rent_exempt_minimum,
+                DonationError::InsufficientFunds
+            );
+            balance - rent_exempt_minimum
+        } else {
+            // Withdraw specific amount
+            require!(amount > 0, DonationError::InvalidAmount);
+            require!(
+                balance >= amount + rent_exempt_minimum,
+                DonationError::InsufficientFunds
+            );
+            amount
+        };
+
+        // Transfer funds
+        **vault.try_borrow_mut_lamports()? -= withdraw_amount;
+        **ctx.accounts.admin.to_account_info().try_borrow_mut_lamports()? += withdraw_amount;
+
+        // Update total withdrawn
+        let vault_state = &mut ctx.accounts.vault_state;
+        vault_state.total_withdrawn = vault_state
+            .total_withdrawn
+            .checked_add(withdraw_amount)
+            .ok_or(DonationError::Overflow)?;
+
+        emit!(EmergencyWithdrawEvent {
+            admin: ctx.accounts.admin.key(),
+            amount: withdraw_amount,
+            reason: "Emergency withdrawal executed".to_string(),
+        });
+
+        msg!(
+            "EMERGENCY WITHDRAWAL: {} lamports to admin {}",
+            withdraw_amount,
+            ctx.accounts.admin.key()
+        );
+
+        Ok(())
+    }
+
+    /// Get vault statistics
+    ///
+    /// # Arguments
+    /// * `ctx` - The context containing all accounts
+    ///
+    /// # Returns
+    /// * `Result<VaultStatistics>` - Vault statistics
+    pub fn get_vault_stats(ctx: Context<GetVaultStats>) -> Result<()> {
+        let vault_state = &ctx.accounts.vault_state;
+        let vault = ctx.accounts.vault.to_account_info();
+
+        let stats = VaultStatistics {
+            admin: vault_state.admin,
+            total_donated: vault_state.total_donated,
+            total_withdrawn: vault_state.total_withdrawn,
+            current_balance: vault.lamports(),
+            donation_count: vault_state.donation_count,
+            unique_donors: vault_state.unique_donors,
+            is_paused: vault_state.is_paused,
+            min_donation_amount: vault_state.min_donation_amount,
+            max_donation_amount: vault_state.max_donation_amount,
+        };
+
+        emit!(VaultStatsEvent {
+            stats,
+        });
+
+        msg!("Vault Statistics:");
+        msg!("  Total donated: {} lamports", vault_state.total_donated);
+        msg!("  Total withdrawn: {} lamports", vault_state.total_withdrawn);
+        msg!("  Current balance: {} lamports", vault.lamports());
+        msg!("  Donations count: {}", vault_state.donation_count);
+        msg!("  Unique donors: {}", vault_state.unique_donors);
+        msg!("  Is paused: {}", vault_state.is_paused);
+
+        Ok(())
+    }
 }
 
+// ========================================
+// Helper Functions
+// ========================================
+
 /// Helper function to calculate donor tier based on total donations
+///
+/// # Arguments
+/// * `total_donated` - Total amount donated by a donor in lamports
+///
+/// # Returns
+/// * `DonorTier` - The calculated tier
 fn calculate_tier(total_donated: u64) -> DonorTier {
     if total_donated >= TIER_PLATINUM {
         DonorTier::Platinum
@@ -322,6 +534,60 @@ fn calculate_tier(total_donated: u64) -> DonorTier {
         DonorTier::Silver
     } else {
         DonorTier::Bronze
+    }
+}
+
+/// Convert lamports to SOL
+///
+/// # Arguments
+/// * `lamports` - Amount in lamports
+///
+/// # Returns
+/// * `f64` - Amount in SOL
+pub fn lamports_to_sol(lamports: u64) -> f64 {
+    lamports as f64 / 1_000_000_000.0
+}
+
+/// Convert SOL to lamports
+///
+/// # Arguments
+/// * `sol` - Amount in SOL
+///
+/// # Returns
+/// * `u64` - Amount in lamports
+pub fn sol_to_lamports(sol: f64) -> u64 {
+    (sol * 1_000_000_000.0) as u64
+}
+
+/// Format tier as string
+///
+/// # Arguments
+/// * `tier` - Donor tier
+///
+/// # Returns
+/// * `&str` - Tier name
+pub fn tier_to_string(tier: DonorTier) -> &'static str {
+    match tier {
+        DonorTier::Bronze => "Bronze",
+        DonorTier::Silver => "Silver",
+        DonorTier::Gold => "Gold",
+        DonorTier::Platinum => "Platinum",
+    }
+}
+
+/// Get tier emoji representation
+///
+/// # Arguments
+/// * `tier` - Donor tier
+///
+/// # Returns
+/// * `&str` - Tier emoji
+pub fn tier_to_emoji(tier: DonorTier) -> &'static str {
+    match tier {
+        DonorTier::Bronze => "🥉",
+        DonorTier::Silver => "🥈",
+        DonorTier::Gold => "🥇",
+        DonorTier::Platinum => "💎",
     }
 }
 
@@ -399,6 +665,7 @@ pub struct Withdraw<'info> {
 
     /// The vault state account
     #[account(
+        mut,
         seeds = [b"vault_state"],
         bump = vault_state.bump
     )]
@@ -427,6 +694,23 @@ pub struct UpdateAdmin<'info> {
     pub vault_state: Account<'info, VaultState>,
 }
 
+#[derive(Accounts)]
+pub struct GetVaultStats<'info> {
+    /// The vault state account
+    #[account(
+        seeds = [b"vault_state"],
+        bump = vault_state.bump
+    )]
+    pub vault_state: Account<'info, VaultState>,
+
+    /// The vault account
+    #[account(
+        seeds = [b"vault"],
+        bump
+    )]
+    pub vault: SystemAccount<'info>,
+}
+
 // ========================================
 // State Structures
 // ========================================
@@ -442,6 +726,14 @@ pub struct VaultState {
     pub donation_count: u64,
     /// Whether the contract is paused
     pub is_paused: bool,
+    /// Minimum donation amount in lamports
+    pub min_donation_amount: u64,
+    /// Maximum donation amount in lamports
+    pub max_donation_amount: u64,
+    /// Total amount withdrawn in lamports
+    pub total_withdrawn: u64,
+    /// Number of unique donors
+    pub unique_donors: u64,
     /// PDA bump seed
     pub bump: u8,
 }
@@ -499,6 +791,63 @@ pub struct PauseEvent {
     pub admin: Pubkey,
     /// Whether the contract is paused
     pub paused: bool,
+}
+
+#[event]
+pub struct DonationLimitsUpdatedEvent {
+    /// The admin's public key
+    pub admin: Pubkey,
+    /// Old minimum amount
+    pub old_min_amount: u64,
+    /// Old maximum amount
+    pub old_max_amount: u64,
+    /// New minimum amount
+    pub new_min_amount: u64,
+    /// New maximum amount
+    pub new_max_amount: u64,
+}
+
+#[event]
+pub struct EmergencyWithdrawEvent {
+    /// The admin's public key
+    pub admin: Pubkey,
+    /// The amount withdrawn
+    pub amount: u64,
+    /// Reason for emergency withdrawal
+    #[index]
+    pub reason: String,
+}
+
+#[event]
+pub struct VaultStatsEvent {
+    /// Vault statistics
+    pub stats: VaultStatistics,
+}
+
+// ========================================
+// Additional Structures
+// ========================================
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct VaultStatistics {
+    /// The admin public key
+    pub admin: Pubkey,
+    /// Total amount donated
+    pub total_donated: u64,
+    /// Total amount withdrawn
+    pub total_withdrawn: u64,
+    /// Current vault balance
+    pub current_balance: u64,
+    /// Number of donations
+    pub donation_count: u64,
+    /// Number of unique donors
+    pub unique_donors: u64,
+    /// Whether contract is paused
+    pub is_paused: bool,
+    /// Minimum donation amount
+    pub min_donation_amount: u64,
+    /// Maximum donation amount
+    pub max_donation_amount: u64,
 }
 
 // ========================================
