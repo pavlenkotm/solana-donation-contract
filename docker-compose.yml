@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # Solana Test Validator
+  solana-validator:
+    image: solanalabs/solana:v1.18.0
+    container_name: donation-validator
+    ports:
+      - "8899:8899"
+      - "8900:8900"
+      - "9900:9900"
+    command: >
+      solana-test-validator
+      --rpc-port 8899
+      --faucet-port 9900
+      --log
+    networks:
+      - solana-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8899/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Development Container
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: donation-dev
+    volumes:
+      - .:/app
+      - cargo-cache:/root/.cargo
+      - solana-cache:/root/.cache/solana
+    working_dir: /app
+    depends_on:
+      solana-validator:
+        condition: service_healthy
+    environment:
+      - ANCHOR_WALLET=/root/.config/solana/id.json
+      - ANCHOR_PROVIDER_URL=http://solana-validator:8899
+    networks:
+      - solana-net
+    command: bash -c "sleep infinity"
+
+  # Testing Container
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: donation-test
+    volumes:
+      - .:/app
+      - cargo-cache:/root/.cargo
+    working_dir: /app
+    depends_on:
+      solana-validator:
+        condition: service_healthy
+    environment:
+      - ANCHOR_WALLET=/root/.config/solana/id.json
+      - ANCHOR_PROVIDER_URL=http://solana-validator:8899
+    networks:
+      - solana-net
+    command: anchor test --skip-local-validator
+
+networks:
+  solana-net:
+    driver: bridge
+
+volumes:
+  cargo-cache:
+  solana-cache:

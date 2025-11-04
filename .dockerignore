@@ -1,0 +1,51 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Dependencies
+node_modules
+target
+.anchor
+
+# Build artifacts
+*.so
+*.o
+*.a
+
+# Test artifacts
+test-ledger
+.anchor/test-ledger
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github
+
+# Deployment reports
+deployment-report-*.txt
