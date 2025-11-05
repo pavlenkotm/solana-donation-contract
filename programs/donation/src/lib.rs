@@ -571,6 +571,36 @@ pub mod donation {
 
         Ok(())
     }
+
+    /// Get donor information
+    ///
+    /// # Arguments
+    /// * `ctx` - The context containing all accounts
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error
+    pub fn get_donor_info(ctx: Context<GetDonorInfo>) -> Result<()> {
+        let donor_info = &ctx.accounts.donor_info;
+
+        emit!(DonorInfoEvent {
+            donor: donor_info.donor,
+            total_donated: donor_info.total_donated,
+            donation_count: donor_info.donation_count,
+            last_donation_timestamp: donor_info.last_donation_timestamp,
+            tier: donor_info.tier,
+        });
+
+        msg!("Donor Information:");
+        msg!("  Donor: {}", donor_info.donor);
+        msg!("  Total donated: {} lamports ({} SOL)",
+            donor_info.total_donated,
+            lamports_to_sol(donor_info.total_donated));
+        msg!("  Donations count: {}", donor_info.donation_count);
+        msg!("  Last donation: {}", donor_info.last_donation_timestamp);
+        msg!("  Tier: {:?}", donor_info.tier);
+
+        Ok(())
+    }
 }
 
 // ========================================
@@ -805,6 +835,16 @@ pub struct RefundDonation<'info> {
     pub donor_info: Account<'info, DonorInfo>,
 }
 
+#[derive(Accounts)]
+pub struct GetDonorInfo<'info> {
+    /// The donor info account to query
+    #[account(
+        seeds = [b"donor_info", donor_info.donor.as_ref()],
+        bump
+    )]
+    pub donor_info: Account<'info, DonorInfo>,
+}
+
 // ========================================
 // State Structures
 // ========================================
@@ -926,6 +966,20 @@ pub struct RefundEvent {
     pub donor: Pubkey,
     /// The amount refunded
     pub amount: u64,
+}
+
+#[event]
+pub struct DonorInfoEvent {
+    /// The donor's public key
+    pub donor: Pubkey,
+    /// Total amount donated by this donor
+    pub total_donated: u64,
+    /// Number of donations by this donor
+    pub donation_count: u64,
+    /// Last donation timestamp
+    pub last_donation_timestamp: i64,
+    /// Current tier
+    pub tier: DonorTier,
 }
 
 // ========================================
