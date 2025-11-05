@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  # Development environment
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: donation-contract-dev
+    volumes:
+      - .:/workspace
+      - cargo-cache:/root/.cargo/registry
+      - target-cache:/workspace/target
+    working_dir: /workspace
+    command: /bin/bash
+    stdin_open: true
+    tty: true
+    environment:
+      - RUST_LOG=info
+      - ANCHOR_WALLET=/workspace/keypairs/id.json
+      - ANCHOR_PROVIDER_URL=http://localhost:8899
+    networks:
+      - solana-network
+
+  # Solana test validator
+  validator:
+    image: solanalabs/solana:v1.18.0
+    container_name: solana-test-validator
+    command: solana-test-validator --reset --quiet
+    ports:
+      - "8899:8899"
+      - "8900:8900"
+      - "9900:9900"
+    networks:
+      - solana-network
+    healthcheck:
+      test: ["CMD", "solana", "cluster-version"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Build service
+  build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: donation-contract-build
+    volumes:
+      - .:/workspace
+      - cargo-cache:/root/.cargo/registry
+      - target-cache:/workspace/target
+    working_dir: /workspace
+    command: anchor build
+    networks:
+      - solana-network
+
+  # Test service
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: donation-contract-test
+    volumes:
+      - .:/workspace
+      - cargo-cache:/root/.cargo/registry
+      - target-cache:/workspace/target
+    working_dir: /workspace
+    command: anchor test
+    depends_on:
+      - validator
+    environment:
+      - ANCHOR_PROVIDER_URL=http://validator:8899
+      - ANCHOR_WALLET=/workspace/keypairs/id.json
+    networks:
+      - solana-network
+
+networks:
+  solana-network:
+    driver: bridge
+
+volumes:
+  cargo-cache:
+  target-cache:
