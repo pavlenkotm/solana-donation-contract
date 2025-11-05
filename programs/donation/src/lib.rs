@@ -847,6 +847,64 @@ pub fn format_time_ago(timestamp: i64, current_time: i64) -> String {
     }
 }
 
+/// Calculate average donation amount
+///
+/// # Arguments
+/// * `total_donated` - Total amount donated
+/// * `donation_count` - Number of donations
+///
+/// # Returns
+/// * `u64` - Average donation amount (0 if no donations)
+pub fn calculate_average_donation(total_donated: u64, donation_count: u64) -> u64 {
+    if donation_count == 0 {
+        0
+    } else {
+        total_donated / donation_count
+    }
+}
+
+/// Calculate donation percentage of total
+///
+/// # Arguments
+/// * `donor_amount` - Amount donated by specific donor
+/// * `total_amount` - Total amount donated by all donors
+///
+/// # Returns
+/// * `f64` - Percentage (0.0 to 100.0)
+pub fn calculate_donation_percentage(donor_amount: u64, total_amount: u64) -> f64 {
+    if total_amount == 0 {
+        0.0
+    } else {
+        (donor_amount as f64 / total_amount as f64) * 100.0
+    }
+}
+
+/// Check if donor is in top percentage
+///
+/// # Arguments
+/// * `donor_amount` - Amount donated by specific donor
+/// * `total_amount` - Total amount donated
+/// * `percentage` - Top percentage to check (e.g., 10.0 for top 10%)
+///
+/// # Returns
+/// * `bool` - Whether donor is in top percentage
+pub fn is_top_donor(donor_amount: u64, total_amount: u64, percentage: f64) -> bool {
+    let donor_percentage = calculate_donation_percentage(donor_amount, total_amount);
+    donor_percentage >= percentage
+}
+
+/// Calculate withdrawal fee
+///
+/// # Arguments
+/// * `amount` - Withdrawal amount
+/// * `fee_bps` - Fee in basis points (100 = 1%)
+///
+/// # Returns
+/// * `u64` - Fee amount in lamports
+pub fn calculate_fee(amount: u64, fee_bps: u16) -> u64 {
+    ((amount as u128 * fee_bps as u128) / 10000) as u64
+}
+
 // ========================================
 // Account Structures
 // ========================================
