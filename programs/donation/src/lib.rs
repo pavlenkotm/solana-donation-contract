@@ -1187,49 +1187,100 @@ pub struct GetDonorInfo<'info> {
 // State Structures
 // ========================================
 
+/// Main vault state account that stores configuration and statistics
+///
+/// This account is a PDA derived from the seed "vault_state" and stores
+/// all critical vault information including admin, statistics, and settings.
+///
+/// # Size Calculation
+/// - Discriminator: 8 bytes
+/// - admin (Pubkey): 32 bytes
+/// - total_donated (u64): 8 bytes
+/// - donation_count (u64): 8 bytes
+/// - is_paused (bool): 1 byte
+/// - min_donation_amount (u64): 8 bytes
+/// - max_donation_amount (u64): 8 bytes
+/// - total_withdrawn (u64): 8 bytes
+/// - unique_donors (u64): 8 bytes
+/// - bump (u8): 1 byte
+/// Total: 8 + 90 = 98 bytes
 #[account]
 #[derive(InitSpace)]
 pub struct VaultState {
-    /// The admin public key
+    /// The admin public key - has full control over vault operations
     pub admin: Pubkey,
-    /// Total amount donated in lamports
+    /// Total amount donated in lamports across all donors
     pub total_donated: u64,
-    /// Number of donations received
+    /// Number of donations received (can be > unique_donors)
     pub donation_count: u64,
-    /// Whether the contract is paused
+    /// Whether the contract is paused (true = no donations accepted)
     pub is_paused: bool,
-    /// Minimum donation amount in lamports
+    /// Minimum donation amount in lamports (configurable by admin)
     pub min_donation_amount: u64,
-    /// Maximum donation amount in lamports
+    /// Maximum donation amount in lamports (configurable by admin)
     pub max_donation_amount: u64,
-    /// Total amount withdrawn in lamports
+    /// Total amount withdrawn in lamports (for accounting)
     pub total_withdrawn: u64,
-    /// Number of unique donors
+    /// Number of unique donors (incremented once per donor)
     pub unique_donors: u64,
-    /// PDA bump seed
+    /// PDA bump seed for canonical derivation
     pub bump: u8,
 }
 
+/// Individual donor information account
+///
+/// This account is a PDA derived from seeds ["donor_info", donor_pubkey]
+/// and stores statistics and tier information for each donor.
+/// Created automatically on first donation (init_if_needed).
+///
+/// # Size Calculation
+/// - Discriminator: 8 bytes
+/// - donor (Pubkey): 32 bytes
+/// - total_donated (u64): 8 bytes
+/// - donation_count (u64): 8 bytes
+/// - last_donation_timestamp (i64): 8 bytes
+/// - tier (DonorTier enum): 1 byte
+/// Total: 8 + 57 = 65 bytes
 #[account]
 #[derive(InitSpace)]
 pub struct DonorInfo {
-    /// The donor's public key
+    /// The donor's public key (address that made donations)
     pub donor: Pubkey,
-    /// Total amount donated by this donor
+    /// Total amount donated by this donor in lamports
     pub total_donated: u64,
-    /// Number of donations made by this donor
+    /// Number of donations made by this specific donor
     pub donation_count: u64,
-    /// Timestamp of last donation
+    /// Unix timestamp of the most recent donation
     pub last_donation_timestamp: i64,
-    /// Donor tier based on total donations
+    /// Current donor tier (Bronze/Silver/Gold/Platinum)
     pub tier: DonorTier,
 }
 
+/// Donor tier classification based on cumulative donation amount
+///
+/// Tiers are automatically calculated and updated on each donation.
+/// Used for gamification, rewards, and donor recognition.
+///
+/// # Tier Thresholds
+/// - Bronze: >= 0.001 SOL (1,000,000 lamports) - Default for all donors
+/// - Silver: >= 0.1 SOL (100,000,000 lamports)
+/// - Gold: >= 1 SOL (1,000,000,000 lamports)
+/// - Platinum: >= 10 SOL (10,000,000,000 lamports) - Elite tier
+///
+/// # Features
+/// - Automatic tier upgrades when thresholds are reached
+/// - TierUpgradeEvent emitted on tier changes
+/// - Tier downgrades possible after refunds
+/// - Can be displayed with emojis: 🥉 🥈 🥇 💎
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq, InitSpace)]
 pub enum DonorTier {
+    /// Entry tier: >= 0.001 SOL
     Bronze,
+    /// Mid tier: >= 0.1 SOL
     Silver,
+    /// Premium tier: >= 1 SOL
     Gold,
+    /// Elite tier: >= 10 SOL
     Platinum,
 }
 
