@@ -512,6 +512,65 @@ pub mod donation {
 
         Ok(())
     }
+
+    /// Refund a donation to a donor (admin only)
+    ///
+    /// # Arguments
+    /// * `ctx` - The context containing all accounts
+    /// * `amount` - Amount to refund in lamports
+    ///
+    /// # Returns
+    /// * `Result<()>` - Success or error
+    pub fn refund_donation(ctx: Context<RefundDonation>, amount: u64) -> Result<()> {
+        // Verify admin authorization
+        require_keys_eq!(
+            ctx.accounts.admin.key(),
+            ctx.accounts.vault_state.admin,
+            DonationError::Unauthorized
+        );
+
+        require!(amount > 0, DonationError::InvalidAmount);
+
+        let vault = ctx.accounts.vault.to_account_info();
+        let balance = vault.lamports();
+
+        // Calculate rent exempt amount
+        let rent = Rent::get()?;
+        let rent_exempt_minimum = rent.minimum_balance(vault.data_len());
+
+        require!(
+            balance >= amount + rent_exempt_minimum,
+            DonationError::InsufficientFunds
+        );
+
+        // Transfer refund from vault to donor
+        **vault.try_borrow_mut_lamports()? -= amount;
+        **ctx.accounts.donor.to_account_info().try_borrow_mut_lamports()? += amount;
+
+        // Update donor info
+        let donor_info = &mut ctx.accounts.donor_info;
+        donor_info.total_donated = donor_info
+            .total_donated
+            .checked_sub(amount)
+            .ok_or(DonationError::Overflow)?;
+
+        // Recalculate tier
+        donor_info.tier = calculate_tier(donor_info.total_donated);
+
+        emit!(RefundEvent {
+            admin: ctx.accounts.admin.key(),
+            donor: ctx.accounts.donor.key(),
+            amount,
+        });
+
+        msg!(
+            "Refund processed: {} lamports to donor {}",
+            amount,
+            ctx.accounts.donor.key()
+        );
+
+        Ok(())
+    }
 }
 
 // ========================================
@@ -711,6 +770,41 @@ pub struct GetVaultStats<'info> {
     pub vault: SystemAccount<'info>,
 }
 
+#[derive(Accounts)]
+pub struct RefundDonation<'info> {
+    /// The admin performing the refund
+    pub admin: Signer<'info>,
+
+    /// The donor receiving the refund
+    /// CHECK: This is safe because we're only transferring lamports to this account
+    #[account(mut)]
+    pub donor: UncheckedAccount<'info>,
+
+    /// The vault state account
+    #[account(
+        mut,
+        seeds = [b"vault_state"],
+        bump = vault_state.bump
+    )]
+    pub vault_state: Account<'info, VaultState>,
+
+    /// The vault account
+    #[account(
+        mut,
+        seeds = [b"vault"],
+        bump
+    )]
+    pub vault: SystemAccount<'info>,
+
+    /// The donor info account
+    #[account(
+        mut,
+        seeds = [b"donor_info", donor.key().as_ref()],
+        bump
+    )]
+    pub donor_info: Account<'info, DonorInfo>,
+}
+
 // ========================================
 // State Structures
 // ========================================
@@ -822,6 +916,16 @@ pub struct EmergencyWithdrawEvent {
 pub struct VaultStatsEvent {
     /// Vault statistics
     pub stats: VaultStatistics,
+}
+
+#[event]
+pub struct RefundEvent {
+    /// The admin's public key
+    pub admin: Pubkey,
+    /// The donor's public key
+    pub donor: Pubkey,
+    /// The amount refunded
+    pub amount: u64,
 }
 
 // ========================================
