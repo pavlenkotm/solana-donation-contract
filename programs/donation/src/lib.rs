@@ -1,3 +1,57 @@
+//! # Solana Donation Contract
+//!
+//! A production-ready smart contract for managing donations on Solana.
+//! Built with Rust and the Anchor framework.
+//!
+//! ## Features
+//!
+//! ### Core Functionality
+//! - **Secure Donations**: Accept SOL with configurable limits
+//! - **Donor Tracking**: Individual statistics and tier system
+//! - **Admin Controls**: Pause/unpause, withdrawals, refunds
+//! - **Event System**: Comprehensive event emissions for tracking
+//!
+//! ### Advanced Features
+//! - **Tier System**: 4-tier gamification (Bronze/Silver/Gold/Platinum)
+//! - **Milestone Tracking**: Automatic detection of fundraising goals
+//! - **Refund Support**: Admin can refund donations with tier recalculation
+//! - **Statistics**: Real-time analytics and donor insights
+//!
+//! ## Architecture
+//!
+//! ### Program Accounts
+//! - `VaultState`: Main configuration and statistics (PDA)
+//! - `Vault`: Holds actual SOL donations (PDA)
+//! - `DonorInfo`: Per-donor statistics and tier (PDA per donor)
+//!
+//! ### Key Instructions
+//! - `initialize`: Setup new vault
+//! - `donate`: Make a donation
+//! - `withdraw` / `withdraw_partial`: Admin withdrawals
+//! - `refund_donation`: Refund to donor
+//! - `pause` / `unpause`: Emergency controls
+//! - `update_admin`: Transfer ownership
+//!
+//! ## Security
+//! - PDA-based vault architecture
+//! - Admin authorization checks
+//! - Rent-exemption protection
+//! - Overflow protection with checked math
+//! - Pause mechanism for emergencies
+//!
+//! ## Example Usage
+//! ```ignore
+//! // Initialize vault
+//! program.methods.initialize()
+//!   .accounts({ admin, vaultState, vault, systemProgram })
+//!   .rpc();
+//!
+//! // Make donation
+//! program.methods.donate(new BN(1_000_000))
+//!   .accounts({ donor, vaultState, vault, donorInfo, systemProgram })
+//!   .rpc();
+//! ```
+
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 
