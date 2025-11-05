@@ -589,6 +589,12 @@ pub mod donation {
     ///
     /// # Returns
     /// * `Result<()>` - Success or error
+    ///
+    /// # Errors
+    /// * `DonationError::Unauthorized` - If caller is not the admin
+    /// * `DonationError::InvalidAmount` - If amount is 0
+    /// * `DonationError::RefundExceedsDonation` - If refund exceeds donated amount
+    /// * `DonationError::InsufficientFunds` - If vault has insufficient balance
     pub fn refund_donation(ctx: Context<RefundDonation>, amount: u64) -> Result<()> {
         // Verify admin authorization
         require_keys_eq!(
@@ -598,6 +604,14 @@ pub mod donation {
         );
 
         require!(amount > 0, DonationError::InvalidAmount);
+
+        let donor_info = &ctx.accounts.donor_info;
+
+        // Ensure refund doesn't exceed what donor has donated
+        require!(
+            amount <= donor_info.total_donated,
+            DonationError::RefundExceedsDonation
+        );
 
         let vault = ctx.accounts.vault.to_account_info();
         let balance = vault.lamports();
@@ -611,6 +625,8 @@ pub mod donation {
             DonationError::InsufficientFunds
         );
 
+        let old_tier = donor_info.tier;
+
         // Transfer refund from vault to donor
         **vault.try_borrow_mut_lamports()? -= amount;
         **ctx.accounts.donor.to_account_info().try_borrow_mut_lamports()? += amount;
@@ -623,7 +639,13 @@ pub mod donation {
             .ok_or(DonationError::Overflow)?;
 
         // Recalculate tier
-        donor_info.tier = calculate_tier(donor_info.total_donated);
+        let new_tier = calculate_tier(donor_info.total_donated);
+        donor_info.tier = new_tier;
+
+        // Log tier downgrade if it occurred
+        if old_tier != new_tier {
+            msg!("⬇️ Tier downgraded: {:?} -> {:?}", old_tier, new_tier);
+        }
 
         emit!(RefundEvent {
             admin: ctx.accounts.admin.key(),
@@ -632,8 +654,9 @@ pub mod donation {
         });
 
         msg!(
-            "Refund processed: {} lamports to donor {}",
+            "Refund processed: {} lamports ({} SOL) to donor {}",
             amount,
+            lamports_to_sol(amount),
             ctx.accounts.donor.key()
         );
 
