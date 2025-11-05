@@ -680,6 +680,82 @@ pub fn tier_to_emoji(tier: DonorTier) -> &'static str {
     }
 }
 
+/// Get tier threshold in lamports
+///
+/// # Arguments
+/// * `tier` - Donor tier
+///
+/// # Returns
+/// * `u64` - Minimum lamports required for tier
+pub fn get_tier_threshold(tier: DonorTier) -> u64 {
+    match tier {
+        DonorTier::Bronze => TIER_BRONZE,
+        DonorTier::Silver => TIER_SILVER,
+        DonorTier::Gold => TIER_GOLD,
+        DonorTier::Platinum => TIER_PLATINUM,
+    }
+}
+
+/// Get next tier for a donor
+///
+/// # Arguments
+/// * `current_tier` - Current donor tier
+///
+/// # Returns
+/// * `Option<DonorTier>` - Next tier or None if already at max
+pub fn get_next_tier(current_tier: DonorTier) -> Option<DonorTier> {
+    match current_tier {
+        DonorTier::Bronze => Some(DonorTier::Silver),
+        DonorTier::Silver => Some(DonorTier::Gold),
+        DonorTier::Gold => Some(DonorTier::Platinum),
+        DonorTier::Platinum => None,
+    }
+}
+
+/// Calculate amount needed to reach next tier
+///
+/// # Arguments
+/// * `current_donated` - Current total donated amount
+/// * `current_tier` - Current donor tier
+///
+/// # Returns
+/// * `Option<u64>` - Lamports needed for next tier or None if at max
+pub fn lamports_to_next_tier(current_donated: u64, current_tier: DonorTier) -> Option<u64> {
+    get_next_tier(current_tier).map(|next_tier| {
+        let next_threshold = get_tier_threshold(next_tier);
+        if current_donated >= next_threshold {
+            0
+        } else {
+            next_threshold - current_donated
+        }
+    })
+}
+
+/// Format timestamp to human readable string (Unix timestamp to days ago)
+///
+/// # Arguments
+/// * `timestamp` - Unix timestamp
+/// * `current_time` - Current Unix timestamp
+///
+/// # Returns
+/// * `String` - Human readable time difference
+pub fn format_time_ago(timestamp: i64, current_time: i64) -> String {
+    let diff = current_time - timestamp;
+    let days = diff / 86400;
+    let hours = (diff % 86400) / 3600;
+    let minutes = (diff % 3600) / 60;
+
+    if days > 0 {
+        format!("{} days ago", days)
+    } else if hours > 0 {
+        format!("{} hours ago", hours)
+    } else if minutes > 0 {
+        format!("{} minutes ago", minutes)
+    } else {
+        "Just now".to_string()
+    }
+}
+
 // ========================================
 // Account Structures
 // ========================================
