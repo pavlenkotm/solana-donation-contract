@@ -54,6 +54,12 @@ const MAX_DONOR_NAME_LENGTH: usize = 32;
 /// Default vault name
 const DEFAULT_VAULT_NAME: &str = "Donation Vault";
 
+/// Milestone amounts for tracking progress (in lamports)
+const MILESTONE_1_SOL: u64 = 1_000_000_000;        // 1 SOL
+const MILESTONE_10_SOL: u64 = 10_000_000_000;       // 10 SOL
+const MILESTONE_100_SOL: u64 = 100_000_000_000;     // 100 SOL
+const MILESTONE_1000_SOL: u64 = 1_000_000_000_000;  // 1000 SOL
+
 #[program]
 pub mod donation {
     use super::*;
@@ -128,6 +134,8 @@ pub mod donation {
 
         // Update vault state
         let vault_state = &mut ctx.accounts.vault_state;
+        let previous_total = vault_state.total_donated;
+
         vault_state.total_donated = vault_state
             .total_donated
             .checked_add(amount)
@@ -143,6 +151,22 @@ pub mod donation {
                 .unique_donors
                 .checked_add(1)
                 .ok_or(DonationError::Overflow)?;
+        }
+
+        let new_total = vault_state.total_donated;
+
+        // Check if milestone was reached
+        if let Some(milestone) = check_milestone_reached(previous_total, new_total) {
+            let current_timestamp = Clock::get()?.unix_timestamp;
+            emit!(MilestoneReachedEvent {
+                milestone_amount: milestone,
+                total_donated: new_total,
+                triggering_donor: ctx.accounts.donor.key(),
+                timestamp: current_timestamp,
+            });
+            msg!("🎯 Milestone reached: {} lamports ({} SOL)!",
+                milestone,
+                lamports_to_sol(milestone));
         }
 
         // Update or initialize donor info
@@ -905,6 +929,44 @@ pub fn calculate_fee(amount: u64, fee_bps: u16) -> u64 {
     ((amount as u128 * fee_bps as u128) / 10000) as u64
 }
 
+/// Check if a milestone was reached with this donation
+///
+/// # Arguments
+/// * `previous_total` - Total donated before this donation
+/// * `new_total` - Total donated after this donation
+///
+/// # Returns
+/// * `Option<u64>` - The milestone amount if reached, None otherwise
+pub fn check_milestone_reached(previous_total: u64, new_total: u64) -> Option<u64> {
+    let milestones = [
+        MILESTONE_1_SOL,
+        MILESTONE_10_SOL,
+        MILESTONE_100_SOL,
+        MILESTONE_1000_SOL,
+    ];
+
+    for &milestone in milestones.iter() {
+        if previous_total < milestone && new_total >= milestone {
+            return Some(milestone);
+        }
+    }
+
+    None
+}
+
+/// Get all milestones as array
+///
+/// # Returns
+/// * `Vec<u64>` - Array of all milestone amounts
+pub fn get_all_milestones() -> Vec<u64> {
+    vec![
+        MILESTONE_1_SOL,
+        MILESTONE_10_SOL,
+        MILESTONE_100_SOL,
+        MILESTONE_1000_SOL,
+    ]
+}
+
 // ========================================
 // Account Structures
 // ========================================
@@ -1228,6 +1290,18 @@ pub struct AdminTransferEvent {
     /// New admin's public key
     pub new_admin: Pubkey,
     /// Timestamp of transfer
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct MilestoneReachedEvent {
+    /// Milestone amount reached
+    pub milestone_amount: u64,
+    /// Total donated when milestone reached
+    pub total_donated: u64,
+    /// Donor who triggered the milestone
+    pub triggering_donor: Pubkey,
+    /// Timestamp when milestone reached
     pub timestamp: i64,
 }
 
