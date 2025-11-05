@@ -1110,4 +1110,28 @@ pub enum DonationError {
 
     #[msg("Invalid amount specified. Amount must be greater than 0.")]
     InvalidAmount,
+
+    #[msg("Donor account does not exist.")]
+    DonorNotFound,
+
+    #[msg("Cannot refund more than donor has donated.")]
+    RefundExceedsDonation,
+
+    #[msg("Vault balance is below minimum required.")]
+    VaultBalanceTooLow,
+
+    #[msg("Admin cannot be set to system program or null address.")]
+    InvalidAdmin,
+
+    #[msg("Donation limits are invalid. Max must be greater than min.")]
+    InvalidLimits,
+
+    #[msg("Timestamp is invalid or in the future.")]
+    InvalidTimestamp,
+
+    #[msg("Account already initialized.")]
+    AlreadyInitialized,
+
+    #[msg("Operation not allowed for this tier.")]
+    TierRestriction,
 }
