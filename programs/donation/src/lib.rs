@@ -147,6 +147,8 @@ pub mod donation {
 
         // Update or initialize donor info
         let donor_info = &mut ctx.accounts.donor_info;
+        let old_tier = donor_info.tier;
+
         donor_info.donor = ctx.accounts.donor.key();
         donor_info.total_donated = donor_info
             .total_donated
@@ -156,8 +158,24 @@ pub mod donation {
             .donation_count
             .checked_add(1)
             .ok_or(DonationError::Overflow)?;
-        donor_info.last_donation_timestamp = Clock::get()?.unix_timestamp;
-        donor_info.tier = calculate_tier(donor_info.total_donated);
+
+        let current_timestamp = Clock::get()?.unix_timestamp;
+        donor_info.last_donation_timestamp = current_timestamp;
+
+        let new_tier = calculate_tier(donor_info.total_donated);
+        donor_info.tier = new_tier;
+
+        // Emit tier upgrade event if tier changed
+        if old_tier != new_tier && !is_new_donor {
+            emit!(TierUpgradeEvent {
+                donor: ctx.accounts.donor.key(),
+                old_tier,
+                new_tier,
+                total_donated: donor_info.total_donated,
+                timestamp: current_timestamp,
+            });
+            msg!("🎉 Tier upgraded: {:?} -> {:?}", old_tier, new_tier);
+        }
 
         // Emit donation event
         emit!(DonationEvent {
@@ -1086,6 +1104,20 @@ pub struct DonorInfoEvent {
     pub last_donation_timestamp: i64,
     /// Current tier
     pub tier: DonorTier,
+}
+
+#[event]
+pub struct TierUpgradeEvent {
+    /// The donor's public key
+    pub donor: Pubkey,
+    /// Previous tier
+    pub old_tier: DonorTier,
+    /// New tier
+    pub new_tier: DonorTier,
+    /// Total amount donated at upgrade
+    pub total_donated: u64,
+    /// Timestamp of upgrade
+    pub timestamp: i64,
 }
 
 // ========================================
