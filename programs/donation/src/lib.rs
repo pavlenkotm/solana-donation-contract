@@ -57,6 +57,10 @@ use anchor_lang::system_program::{transfer, Transfer};
 
 declare_id!("DoNaT1on1111111111111111111111111111111111111");
 
+// ========================================
+// Donation Limit Constants
+// ========================================
+
 /// Minimum donation amount in lamports (0.001 SOL)
 const MIN_DONATION: u64 = 1_000_000;
 
@@ -69,14 +73,28 @@ const DEFAULT_MIN_DONATION: u64 = 1_000_000;
 /// Default maximum donation amount in lamports (100 SOL)
 const DEFAULT_MAX_DONATION: u64 = 100_000_000_000;
 
-/// Donation tier thresholds
-const TIER_BRONZE: u64 = 1_000_000;      // 0.001 SOL
-const TIER_SILVER: u64 = 100_000_000;    // 0.1 SOL
-const TIER_GOLD: u64 = 1_000_000_000;    // 1 SOL
-const TIER_PLATINUM: u64 = 10_000_000_000; // 10 SOL
+// ========================================
+// Tier System Constants
+// ========================================
 
-/// Maximum number of top donors to track
+/// Bronze tier threshold: >= 0.001 SOL
+const TIER_BRONZE: u64 = 1_000_000;
+
+/// Silver tier threshold: >= 0.1 SOL
+const TIER_SILVER: u64 = 100_000_000;
+
+/// Gold tier threshold: >= 1 SOL
+const TIER_GOLD: u64 = 1_000_000_000;
+
+/// Platinum tier threshold: >= 10 SOL
+const TIER_PLATINUM: u64 = 10_000_000_000;
+
+/// Maximum number of top donors to track in leaderboard
 const MAX_TOP_DONORS: usize = 100;
+
+// ========================================
+// Financial Constants
+// ========================================
 
 /// Minimum rent-exempt balance for vault (5000 lamports)
 const MIN_VAULT_BALANCE: u64 = 5000;
@@ -90,29 +108,47 @@ const MAX_WITHDRAWAL_FEE_BPS: u16 = 1000;
 /// Bonus percentage for platinum donors in basis points (500 = 5%)
 const PLATINUM_BONUS_BPS: u16 = 500;
 
+/// Lamports per SOL constant for conversions
+const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
+
+// ========================================
+// Time-Related Constants
+// ========================================
+
 /// Seconds in a day for time calculations
 const SECONDS_PER_DAY: i64 = 86400;
 
 /// Seconds in an hour for time calculations
 const SECONDS_PER_HOUR: i64 = 3600;
 
-/// Lamports per SOL constant
-const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
+/// Minimum time between donations (in seconds) - anti-spam protection
+const MIN_DONATION_INTERVAL: i64 = 1;
 
-/// Minimum time between donations (in seconds) - anti-spam
-const MIN_DONATION_INTERVAL: i64 = 1; // 1 second
+// ========================================
+// Metadata Constants
+// ========================================
 
-/// Maximum donor name length
+/// Maximum donor name length in characters
 const MAX_DONOR_NAME_LENGTH: usize = 32;
 
-/// Default vault name
+/// Default vault name for display purposes
 const DEFAULT_VAULT_NAME: &str = "Donation Vault";
 
-/// Milestone amounts for tracking progress (in lamports)
-const MILESTONE_1_SOL: u64 = 1_000_000_000;        // 1 SOL
-const MILESTONE_10_SOL: u64 = 10_000_000_000;       // 10 SOL
-const MILESTONE_100_SOL: u64 = 100_000_000_000;     // 100 SOL
-const MILESTONE_1000_SOL: u64 = 1_000_000_000_000;  // 1000 SOL
+// ========================================
+// Milestone Constants
+// ========================================
+
+/// Milestone 1: 1 SOL total donations
+const MILESTONE_1_SOL: u64 = 1_000_000_000;
+
+/// Milestone 2: 10 SOL total donations
+const MILESTONE_10_SOL: u64 = 10_000_000_000;
+
+/// Milestone 3: 100 SOL total donations
+const MILESTONE_100_SOL: u64 = 100_000_000_000;
+
+/// Milestone 4: 1000 SOL total donations
+const MILESTONE_1000_SOL: u64 = 1_000_000_000_000;
 
 #[program]
 pub mod donation {
