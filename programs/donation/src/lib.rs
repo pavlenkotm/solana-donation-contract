@@ -267,6 +267,10 @@ pub mod donation {
     ///
     /// # Returns
     /// * `Result<()>` - Success or error
+    ///
+    /// # Errors
+    /// * `DonationError::Unauthorized` - If caller is not the current admin
+    /// * `DonationError::InvalidAdmin` - If new admin is system program or null
     pub fn update_admin(ctx: Context<UpdateAdmin>, new_admin: Pubkey) -> Result<()> {
         // Verify current admin authorization
         require_keys_eq!(
@@ -275,11 +279,27 @@ pub mod donation {
             DonationError::Unauthorized
         );
 
+        // Validate new admin is not system program or default pubkey
+        require!(
+            new_admin != anchor_lang::system_program::ID,
+            DonationError::InvalidAdmin
+        );
+        require!(
+            new_admin != Pubkey::default(),
+            DonationError::InvalidAdmin
+        );
+
         let old_admin = ctx.accounts.vault_state.admin;
         ctx.accounts.vault_state.admin = new_admin;
 
+        emit!(AdminTransferEvent {
+            old_admin,
+            new_admin,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
         msg!(
-            "Admin updated from {} to {}",
+            "Admin transferred from {} to {}",
             old_admin,
             new_admin
         );
@@ -1117,6 +1137,16 @@ pub struct TierUpgradeEvent {
     /// Total amount donated at upgrade
     pub total_donated: u64,
     /// Timestamp of upgrade
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct AdminTransferEvent {
+    /// Previous admin's public key
+    pub old_admin: Pubkey,
+    /// New admin's public key
+    pub new_admin: Pubkey,
+    /// Timestamp of transfer
     pub timestamp: i64,
 }
 
