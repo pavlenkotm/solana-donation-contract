@@ -66,11 +66,32 @@ pub mod donation {
 
     /// Initialize a new donation vault
     ///
+    /// This function sets up a new donation vault with default configuration.
+    /// It should be called only once per vault instance.
+    ///
     /// # Arguments
-    /// * `ctx` - The context containing all accounts
+    /// * `ctx` - The context containing all accounts:
+    ///   - `admin`: The signer who will become the vault administrator
+    ///   - `vault_state`: The PDA that stores vault configuration and statistics
+    ///   - `vault`: The PDA that holds the actual SOL donations
+    ///   - `system_program`: Required for account creation
     ///
     /// # Returns
     /// * `Result<()>` - Success or error
+    ///
+    /// # Default Configuration
+    /// - Min donation: 0.001 SOL (1,000,000 lamports)
+    /// - Max donation: 100 SOL (100,000,000,000 lamports)
+    /// - Contract status: Unpaused (accepting donations)
+    /// - Initial statistics: All zeros
+    ///
+    /// # Example
+    /// ```ignore
+    /// program.methods
+    ///   .initialize()
+    ///   .accounts({ admin, vaultState, vault, systemProgram })
+    ///   .rpc();
+    /// ```
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         let vault_state = &mut ctx.accounts.vault_state;
         vault_state.admin = ctx.accounts.admin.key();
@@ -92,17 +113,47 @@ pub mod donation {
 
     /// Process a donation from a user to the vault
     ///
+    /// This is the core function for accepting donations. It performs comprehensive
+    /// validation, transfers SOL to the vault, updates statistics, tracks donor tiers,
+    /// and emits relevant events including tier upgrades and milestones.
+    ///
     /// # Arguments
-    /// * `ctx` - The context containing all accounts
+    /// * `ctx` - The context containing all accounts:
+    ///   - `donor`: The signer making the donation
+    ///   - `vault_state`: The vault configuration and statistics
+    ///   - `vault`: The vault PDA receiving the donation
+    ///   - `donor_info`: The donor's statistics PDA (auto-created if needed)
+    ///   - `system_program`: Required for transfers
     /// * `amount` - The amount of lamports to donate
     ///
     /// # Returns
     /// * `Result<()>` - Success or error
     ///
     /// # Errors
-    /// * `DonationError::DonationTooSmall` - If donation is below minimum
-    /// * `DonationError::DonationTooLarge` - If donation exceeds maximum
-    /// * `DonationError::ContractPaused` - If donations are paused
+    /// * `DonationError::DonationTooSmall` - If donation is below configured minimum
+    /// * `DonationError::DonationTooLarge` - If donation exceeds configured maximum
+    /// * `DonationError::ContractPaused` - If donations are paused by admin
+    /// * `DonationError::Overflow` - If arithmetic overflow occurs
+    ///
+    /// # Events Emitted
+    /// - `DonationEvent`: Always emitted for every donation
+    /// - `TierUpgradeEvent`: Emitted when donor reaches a new tier
+    /// - `MilestoneReachedEvent`: Emitted when vault reaches a milestone
+    ///
+    /// # Features
+    /// - Automatic tier calculation (Bronze/Silver/Gold/Platinum)
+    /// - Unique donor tracking
+    /// - Milestone detection (1, 10, 100, 1000 SOL)
+    /// - Timestamp recording for last donation
+    ///
+    /// # Example
+    /// ```ignore
+    /// // Donate 0.1 SOL
+    /// program.methods
+    ///   .donate(new BN(100_000_000))
+    ///   .accounts({ donor, vaultState, vault, donorInfo, systemProgram })
+    ///   .rpc();
+    /// ```
     pub fn donate(ctx: Context<Donate>, amount: u64) -> Result<()> {
         let vault_state = &ctx.accounts.vault_state;
 
