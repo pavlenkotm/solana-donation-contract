@@ -24,6 +24,36 @@ const TIER_PLATINUM: u64 = 10_000_000_000; // 10 SOL
 /// Maximum number of top donors to track
 const MAX_TOP_DONORS: usize = 100;
 
+/// Minimum rent-exempt balance for vault (5000 lamports)
+const MIN_VAULT_BALANCE: u64 = 5000;
+
+/// Default withdrawal fee in basis points (0 = no fee, 100 = 1%)
+const DEFAULT_WITHDRAWAL_FEE_BPS: u16 = 0;
+
+/// Maximum withdrawal fee in basis points (1000 = 10%)
+const MAX_WITHDRAWAL_FEE_BPS: u16 = 1000;
+
+/// Bonus percentage for platinum donors in basis points (500 = 5%)
+const PLATINUM_BONUS_BPS: u16 = 500;
+
+/// Seconds in a day for time calculations
+const SECONDS_PER_DAY: i64 = 86400;
+
+/// Seconds in an hour for time calculations
+const SECONDS_PER_HOUR: i64 = 3600;
+
+/// Lamports per SOL constant
+const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
+
+/// Minimum time between donations (in seconds) - anti-spam
+const MIN_DONATION_INTERVAL: i64 = 1; // 1 second
+
+/// Maximum donor name length
+const MAX_DONOR_NAME_LENGTH: usize = 32;
+
+/// Default vault name
+const DEFAULT_VAULT_NAME: &str = "Donation Vault";
+
 #[program]
 pub mod donation {
     use super::*;
