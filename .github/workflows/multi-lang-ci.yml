@@ -1,0 +1,147 @@
+name: Multi-Language CI
+
+on:
+  push:
+    branches: [ main, develop, claude/** ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Python Tests
+  python-tests:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          cd languages/python/web3-scripts
+          pip install -r requirements.txt
+      - name: Lint with flake8
+        run: |
+          pip install flake8
+          flake8 languages/python --count --select=E9,F63,F7,F82 --show-source --statistics
+
+  # Solidity Tests
+  solidity-tests:
+    name: Solidity Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: |
+          cd languages/solidity/erc20-token
+          npm install
+      - name: Compile contracts
+        run: |
+          cd languages/solidity/erc20-token
+          npm run compile
+
+  # Go Tests
+  go-tests:
+    name: Go Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      - name: Build
+        run: |
+          cd languages/go/rpc-tools
+          go build -v ./...
+      - name: Test
+        run: |
+          cd languages/go/rpc-tools
+          go test -v ./...
+
+  # Java Tests
+  java-tests:
+    name: Java Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+      - name: Build with Maven
+        run: |
+          cd languages/java/web3j-integration
+          mvn clean compile
+
+  # TypeScript Lint
+  typescript-lint:
+    name: TypeScript Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: |
+          cd languages/typescript/dapp-frontend
+          npm install
+      - name: Type check
+        run: |
+          cd languages/typescript/dapp-frontend
+          npm run type-check
+
+  # C++ Build
+  cpp-build:
+    name: C++ Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake libssl-dev
+      - name: Build
+        run: |
+          cd languages/cpp/crypto-algorithms
+          mkdir -p build && cd build
+          cmake ..
+          cmake --build .
+
+  # Rust/Solana Build
+  rust-build:
+    name: Rust/Solana Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Build
+        run: cargo build --verbose
+
+  # Markdown Lint
+  markdown-lint:
+    name: Markdown Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint Markdown files
+        uses: actionshub/markdownlint@main
+
+  # All Tests Passed
+  all-tests:
+    name: All Tests
+    needs: [python-tests, solidity-tests, go-tests, java-tests, typescript-lint, cpp-build, rust-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All tests passed
+        run: echo "✅ All multi-language tests passed successfully!"

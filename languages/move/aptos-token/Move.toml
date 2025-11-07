@@ -1,0 +1,16 @@
+[package]
+name = "simple_coin"
+version = "1.0.0"
+authors = ["Web3 Developer"]
+
+[addresses]
+simple_coin = "_"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-core.git"
+rev = "mainnet"
+subdir = "aptos-move/framework/aptos-framework"
+
+[dev-addresses]
+
+[dev-dependencies]
