@@ -33,7 +33,7 @@ export function loadConfig(): DonationConfig {
   }
 
   // Parse program ID
-  const programIdStr = process.env.PROGRAM_ID || "DoNaT1on1111111111111111111111111111111111111";
+  const programIdStr = process.env.PROGRAM_ID || "DoNaT1on111111111111111111111111111111111111";
   const programId = new PublicKey(programIdStr);
 
   // Parse donation limits

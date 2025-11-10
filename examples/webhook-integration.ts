@@ -15,7 +15,7 @@ import * as anchor from "@coral-xyz/anchor";
 // Configuration
 const WEBHOOK_URL = process.env.WEBHOOK_URL || "https://your-webhook-endpoint.com/donations";
 const RPC_URL = process.env.RPC_URL || "https://api.devnet.solana.com";
-const PROGRAM_ID = new PublicKey(process.env.PROGRAM_ID || "DoNaT1on1111111111111111111111111111111111111");
+const PROGRAM_ID = new PublicKey(process.env.PROGRAM_ID || "DoNaT1on111111111111111111111111111111111111");
 
 /**
  * Send webhook notification
