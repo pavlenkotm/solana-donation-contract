@@ -304,7 +304,7 @@ async function main() {
   const wallet = anchor.Wallet.local();
 
   // Program ID (replace with your deployed program ID)
-  const programId = new PublicKey("DoNaT1on1111111111111111111111111111111111111");
+  const programId = new PublicKey("DoNaT1on111111111111111111111111111111111111");
 
   // Create client
   const client = new DonationClient(connection, wallet, programId);

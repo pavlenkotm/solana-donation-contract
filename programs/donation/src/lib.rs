@@ -55,7 +55,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{transfer, Transfer};
 
-declare_id!("DoNaT1on1111111111111111111111111111111111111");
+declare_id!("DoNaT1on111111111111111111111111111111111111");
 
 // ========================================
 // Donation Limit Constants
