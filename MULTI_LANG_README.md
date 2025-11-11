@@ -4,10 +4,10 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Commits](https://img.shields.io/github/commit-activity/m/pavlenkotm/solana-donation-contract)
-![Languages](https://img.shields.io/badge/languages-12+-purple)
+![Languages](https://img.shields.io/badge/languages-18+-purple)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
-**A comprehensive showcase of blockchain development across 12+ programming languages**
+**A comprehensive showcase of blockchain development across 18+ programming languages**
 
 [Explore Languages](#-languages--technologies) • [Getting Started](#-quick-start) • [Contributing](#-contributing) • [License](#-license)
 
@@ -25,8 +25,9 @@ Welcome to the **Web3 Multi-Language Playground** - a professional repository de
 - 🌐 **Frontend**: TypeScript/React with Web3 integration
 - 🔧 **Backend**: Python, Go, Java for blockchain operations
 - 📱 **Mobile**: Swift iOS wallet SDK
-- ⚡ **Performance**: C++ cryptographic algorithms, Zig WASM
-- 🎓 **Functional**: Haskell/Plutus for Cardano
+- ⚡ **Performance**: C++ cryptographic algorithms, Zig systems programming
+- 🎓 **Functional**: Haskell pure functions, Elixir OTP concurrency
+- 💎 **Exotic**: Nim, Crystal, Forth - demonstrating diverse paradigms
 
 ## ✨ Key Features
 
@@ -42,11 +43,12 @@ Welcome to the **Web3 Multi-Language Playground** - a professional repository de
 ## 📊 Repository Stats
 
 ```
-Total Programming Languages: 12+
-Lines of Code: 10,000+
+Total Programming Languages: 18+
+Lines of Code: 15,000+
 Total Commits: 40+
 Test Coverage: High
 Documentation: Extensive
+Paradigms Covered: Imperative, Functional, Concurrent, Stack-based
 ```
 
 ## 🗂️ Languages & Technologies
@@ -186,28 +188,93 @@ cmake .. && make
 ./keccak256
 ```
 
-#### ⚙️ [Zig](./languages/zig/wasm-crypto)
-**WebAssembly Crypto Operations**
-- High-performance WASM modules
-- Memory-safe operations
-- Near-C performance
-```bash
-cd languages/zig/wasm-crypto
-zig build
-```
 
 ---
 
 ### Functional Programming
 
-#### λ [Haskell/Plutus](./languages/haskell/plutus-contract)
-**Cardano Smart Contracts**
-- Plutus smart contracts
-- On-chain and off-chain code
-- Formal verification capabilities
+#### λ [Haskell](./languages/haskell/solana-client)
+**Pure Functional Solana Client**
+- Strong type system with compile-time guarantees
+- Monadic error handling with Either monad
+- Algebraic data types for precise modeling
+- Lazy evaluation for efficient operations
+- Pure functions with isolated side effects
 ```bash
-cd languages/haskell/plutus-contract
-cabal build
+cd languages/haskell/solana-client
+cabal update && cabal install --lib aeson http-client
+ghc DonationClient.hs
+```
+
+#### 💧 [Elixir](./languages/elixir/donation-client)
+**Concurrent OTP Client**
+- GenServer-based state management
+- Fault-tolerant supervision trees
+- Pattern matching for elegant error handling
+- Lightweight processes for concurrency
+- Real-time event streaming
+```bash
+cd languages/elixir/donation-client
+mix deps.get && mix compile
+iex -S mix
+```
+
+---
+
+### Modern Systems Languages
+
+#### 👑 [Nim](./languages/nim/solana-client)
+**Python-like Syntax, C-like Performance**
+- Compiles to optimized C code
+- Python-like readability
+- Strong static typing with inference
+- Powerful metaprogramming
+- Zero-cost abstractions
+```bash
+cd languages/nim/solana-client
+nim c -r src/donation_client.nim
+```
+
+#### 💎 [Crystal](./languages/crystal/solana-client)
+**Ruby Elegance, Native Speed**
+- Ruby-inspired syntax
+- Compiled to native code via LLVM
+- Type inference and null safety
+- Lightweight fibers for concurrency
+- As fast as C
+```bash
+cd languages/crystal/solana-client
+shards install
+crystal build src/donation_client.cr --release
+```
+
+#### ⚡ [Zig](./languages/zig/solana-client)
+**Memory-Safe Systems Programming**
+- Explicit memory management
+- Compile-time safety guarantees
+- No hidden control flow
+- Cross-compilation made easy
+- Comptime for compile-time execution
+```bash
+cd languages/zig/solana-client
+zig build && zig build run
+```
+
+---
+
+### Stack-Based & Concatenative
+
+#### 📚 [Forth](./languages/forth/donation-client)
+**Minimalist Stack-Based Programming**
+- Reverse Polish Notation (RPN)
+- Interactive REPL development
+- Extremely small footprint
+- Direct hardware access
+- Concatenative programming paradigm
+```bash
+cd languages/forth/donation-client
+gforth donation-client.fs
+# Type 'example' to see it in action
 ```
 
 ---
@@ -273,7 +340,7 @@ Each language sub-project includes:
 solana-donation-contract/
 ├── programs/          # Main Solana Anchor program
 │   └── donation/      # Rust/Solana donation contract
-├── languages/         # Multi-language examples
+├── languages/         # Multi-language examples (18+ languages!)
 │   ├── solidity/      # Solidity ERC-20 token
 │   ├── vyper/         # Vyper vault contract
 │   ├── move/          # Move/Aptos token
@@ -283,8 +350,12 @@ solana-donation-contract/
 │   ├── cpp/           # C++ crypto algorithms
 │   ├── java/          # Java Web3j integration
 │   ├── swift/         # iOS wallet SDK
-│   ├── haskell/       # Plutus contracts
-│   ├── zig/           # WASM crypto
+│   ├── haskell/       # Pure functional client
+│   ├── elixir/        # Concurrent OTP client
+│   ├── nim/           # Systems programming client
+│   ├── crystal/       # Ruby-like compiled client
+│   ├── zig/           # Memory-safe systems client
+│   ├── forth/         # Stack-based client
 │   └── html-css/      # Landing page
 ├── tests/             # Test suites
 ├── scripts/           # Deployment scripts
@@ -375,6 +446,18 @@ We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guideline
 
 ### Mobile
 - ✅ iOS Wallet SDK (Swift)
+
+### Functional Programming
+- ✅ Pure Functional Client (Haskell)
+- ✅ Concurrent OTP Client (Elixir)
+
+### Modern Systems Languages
+- ✅ Python-like Performance (Nim)
+- ✅ Ruby Elegance + Speed (Crystal)
+- ✅ Memory-Safe Systems (Zig)
+
+### Exotic & Educational
+- ✅ Stack-Based Programming (Forth)
 
 ## 🔐 Security
 
