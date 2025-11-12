@@ -4,10 +4,10 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Commits](https://img.shields.io/github/commit-activity/m/pavlenkotm/solana-donation-contract)
-![Languages](https://img.shields.io/badge/languages-18+-purple)
+![Languages](https://img.shields.io/badge/languages-25+-purple)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
-**A comprehensive showcase of blockchain development across 18+ programming languages**
+**A comprehensive showcase of blockchain development across 25+ programming languages and 10+ blockchain platforms**
 
 [Explore Languages](#-languages--technologies) • [Getting Started](#-quick-start) • [Contributing](#-contributing) • [License](#-license)
 
@@ -21,13 +21,14 @@ Welcome to the **Web3 Multi-Language Playground** - a professional repository de
 
 ### What's Inside
 
-- ⟠ **Smart Contracts**: Solidity, Vyper, Rust (Solana), Move (Aptos)
+- ⟠ **Smart Contracts**: Solidity (Ethereum), Vyper, Rust (Solana, NEAR), Move (Aptos), Cairo (StarkNet), Ink! (Polkadot), Clarity (Stacks), Motoko (ICP), Plutus (Cardano)
 - 🌐 **Frontend**: TypeScript/React with Web3 integration
-- 🔧 **Backend**: Python, Go, Java for blockchain operations
+- 🔧 **Backend**: Python, Go (Cosmos SDK), Java for blockchain operations
 - 📱 **Mobile**: Swift iOS wallet SDK
 - ⚡ **Performance**: C++ cryptographic algorithms, Zig systems programming
-- 🎓 **Functional**: Haskell pure functions, Elixir OTP concurrency
+- 🎓 **Functional**: Haskell/Plutus for Cardano, Elixir OTP concurrency
 - 💎 **Exotic**: Nim, Crystal, Forth - demonstrating diverse paradigms
+- 🔗 **10+ Blockchains**: Ethereum, Solana, NEAR, Aptos, StarkNet, Polkadot, Stacks, ICP, Cardano, Cosmos
 
 ## ✨ Key Features
 
@@ -43,12 +44,13 @@ Welcome to the **Web3 Multi-Language Playground** - a professional repository de
 ## 📊 Repository Stats
 
 ```
-Total Programming Languages: 18+
-Lines of Code: 15,000+
-Total Commits: 40+
+Total Programming Languages: 25+
+Blockchain Platforms: 10+
+Lines of Code: 25,000+
+Total Commits: 50+
 Test Coverage: High
 Documentation: Extensive
-Paradigms Covered: Imperative, Functional, Concurrent, Stack-based
+Paradigms Covered: Imperative, Functional, Concurrent, Stack-based, Actor-based
 ```
 
 ## 🗂️ Languages & Technologies
@@ -100,6 +102,98 @@ anchor build && anchor test
 ```bash
 cd languages/move/aptos-token
 aptos move compile && aptos move test
+```
+
+---
+
+### Layer 2 & Alternative Smart Contract Platforms
+
+#### 🏛️ [Cairo - StarkNet](./languages/cairo/donation-contract)
+**Zero-Knowledge Smart Contracts for Ethereum L2**
+- STARK proof-based scalability
+- Native ZK-proof support
+- Low transaction fees
+- Cairo 2.0 with improved developer experience
+- Event emission and storage optimization
+```bash
+cd languages/cairo/donation-contract
+scarb build && scarb test
+```
+
+#### 🕸️ [Ink! - Polkadot/Substrate](./languages/ink/donation-contract)
+**Rust-based Smart Contracts for Polkadot Ecosystem**
+- Rust eDSL for Substrate chains
+- WebAssembly compilation
+- Cross-chain messaging via XCM
+- Built-in testing framework
+- Small binary sizes
+```bash
+cd languages/ink/donation-contract
+cargo contract build && cargo test
+```
+
+#### ₿ [Clarity - Stacks (Bitcoin L2)](./languages/clarity/donation-contract)
+**Decidable Smart Contracts on Bitcoin**
+- Lisp-like syntax with decidability guarantees
+- No recursion = predictable execution
+- Bitcoin-secured transactions
+- Post-conditions for safety
+- Read-only functions (no gas cost)
+```bash
+cd languages/clarity/donation-contract
+clarinet check && clarinet test
+```
+
+#### 🌐 [Motoko - Internet Computer (ICP)](./languages/motoko/donation-canister)
+**Actor-Based Canisters for Web-Speed Blockchain**
+- Modern actor model for concurrency
+- Automatic persistence and upgrades
+- Cycles-based resource management
+- Query functions at web speed
+- Native async/await support
+```bash
+cd languages/motoko/donation-canister
+dfx start --background
+dfx deploy
+```
+
+#### 🦀 [Rust - NEAR Protocol](./languages/rust-near/donation-contract)
+**High-Performance Sharded Blockchain**
+- near-sdk-rs for contract development
+- Human-readable account names
+- Fast finality (~1-2 seconds)
+- Very low transaction fees
+- Storage staking model
+```bash
+cd languages/rust-near/donation-contract
+cargo build --target wasm32-unknown-unknown --release
+near deploy
+```
+
+#### λ [Haskell/Plutus - Cardano](./languages/haskell-plutus/donation-contract)
+**Formally Verifiable Smart Contracts**
+- eUTXO model for parallelization
+- Strong type safety with Haskell
+- Formal verification support
+- Deterministic execution costs
+- Academic-grade security
+```bash
+cd languages/haskell-plutus/donation-contract
+cabal build
+cardano-cli transaction build ...
+```
+
+#### ⚛️ [Go - Cosmos SDK](./languages/go-cosmos/donation-module)
+**Modular Blockchain Framework**
+- Custom blockchain modules in Go
+- IBC for cross-chain communication
+- CometBFT consensus engine
+- Pluggable module architecture
+- Sovereignty over your blockchain
+```bash
+cd languages/go-cosmos/donation-module
+go build
+mychaind start
 ```
 
 ---
