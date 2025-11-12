@@ -1,0 +1,43 @@
+cabal-version:      2.4
+name:               donation-contract
+version:            0.1.0.0
+synopsis:           Plutus donation contract for Cardano
+description:        A secure donation system with donor tier tracking
+license:            MIT
+author:             Donation Contract Team
+maintainer:         team@example.com
+category:           Blockchain
+build-type:         Simple
+
+common common-all
+    default-language: Haskell2010
+    ghc-options:
+        -Wall
+        -Wcompat
+        -Wincomplete-uni-patterns
+        -Wincomplete-record-updates
+        -Wredundant-constraints
+        -Widentities
+        -fobject-code
+        -fno-ignore-interface-pragmas
+        -fno-omit-interface-pragmas
+
+library
+    import:           common-all
+    hs-source-dirs:   .
+    exposed-modules:  DonationContract
+    build-depends:
+        base                      >= 4.14 && < 5,
+        aeson                     >= 2.0,
+        bytestring                >= 0.11,
+        text                      >= 1.2,
+        plutus-core               >= 1.0,
+        plutus-ledger-api         >= 1.0,
+        plutus-tx                 >= 1.0,
+        plutus-tx-plugin          >= 1.0,
+        plutus-script-utils       >= 1.0
+
+    ghc-options:
+        -fno-strictness
+        -fno-spec-constr
+        -fno-specialise
